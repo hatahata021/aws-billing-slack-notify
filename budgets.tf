@@ -1,5 +1,5 @@
 resource "aws_budgets_budget" "cost_alert" {
-  name              = "ALERT of Ref $10 v2"
+  name              = "alert_$10_slack_notify_association"
   budget_type       = "COST"
   limit_amount      = "10"
   limit_unit        = "USD"

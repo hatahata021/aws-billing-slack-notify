@@ -1,9 +1,12 @@
+# 本ソースコードは以下のブログを参考に、通知先をslackに変更したものです。
+# 加えて、クレジット適用前の請求額を取得するように変更しています。
+# https://dev.classmethod.jp/articles/notify-line-aws-billing/
+
 import os
 import boto3
 import json
 import requests
 from datetime import datetime, timedelta, date
-# from dateutil.relativedelta import relativedelta
 
 SLACK_WEBHOOK_URL = os.environ["SLACK_WEBHOOK_URL"]
 SLACK_USER_ID = os.environ["SLACK_USER_ID"]
@@ -16,10 +19,10 @@ def lambda_handler(event, context) -> None:
     # 合計とサービス毎の請求額を取得する
     total_billing = get_total_billing(client)
     service_billings = get_service_billings(client)
-    credit_balance = get_credit_balance(client)
+    uncredit_billing = get_uncredit_billing(client)
 
     # Slack用のメッセージを作成して投げる
-    (title, detail) = get_message(total_billing, service_billings, credit_balance)
+    (title, detail) = get_message(total_billing, service_billings, uncredit_billing)
     post_slack(title, detail)
 
 
@@ -75,17 +78,20 @@ def get_service_billings(client) -> list:
     return billings
 
 
-def get_credit_balance(client) -> str:
-    budgets_client = boto3.client('budgets', region_name='us-east-1')
+def get_uncredit_billing(client) -> str:
+    client = boto3.client('budgets', region_name='us-east-1')
     
     try:        
-        response = budgets_client.describe_budget_performance_history(
+        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/budgets/client/describe_budget.html
+        response = client.describe_budget(
             AccountId=AWS_ACCOUNT_ID,
-            BudgetName='ALERT of Ref $10 v2'
+            BudgetName='alert_$10_slack_notify_association'
         )
 
+        print(response)
+
         # 実際のコスト（クレジット適用前）を取得
-        actual_spend = float(response['BudgetPerformanceHistory']['BudgetedAndActualAmountsList'][-1]['ActualAmount']['Amount'])
+        actual_spend = float(response['Budget']['CalculatedSpend']['ActualSpend']['Amount'])
         return str(actual_spend)
         
     except Exception as e:
@@ -93,7 +99,7 @@ def get_credit_balance(client) -> str:
         return "0.0"  # エラーの場合はデフォルト値を返す
 
 
-def get_message(total_billing: dict, service_billings: list, credit_balance: str) -> (str, str, str):
+def get_message(total_billing: dict, service_billings: list, uncredit_billing: str) -> (str, str, str):
     start = datetime.strptime(total_billing['start'], '%Y-%m-%d').strftime('%m/%d')
 
     # Endの日付は結果に含まないため、表示上は前日にしておく
@@ -101,9 +107,9 @@ def get_message(total_billing: dict, service_billings: list, credit_balance: str
     end_yesterday = (end_today - timedelta(days=1)).strftime('%m/%d')
 
     total = round(float(total_billing['billing']), 2)
-    credit = round(float(credit_balance), 3)
+    credit = round(float(uncredit_billing), 2)
 
-    title = f'<@{SLACK_USER_ID}>\n{start}～{end_yesterday}の請求額は {total:.2f} USDです。\nクレジット適用前の金額は {credit:.3f} USDです。'
+    title = f'<@{SLACK_USER_ID}>\n{start}～{end_yesterday}の請求額は {total:.2f} USDです。\nクレジット適用前の金額は {credit:.2f} USDです。'
 
     details = []
     for item in service_billings:
@@ -155,7 +161,6 @@ def get_total_cost_date_range() -> (str, str):
 
 
 def get_begin_of_month() -> str:
-    # return date.today().replace(day=1).isoformat()
     return date.today().replace(day=1).isoformat()
 
 

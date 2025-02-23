@@ -9,6 +9,9 @@
 Lambda関数はクレジット適用前の月額を取得して通知しますが、そのためにはBudgetの設定が必要です。<br>
 Budgetの通知が不要な場合は、Budgetのsubscription設定を解除してください。
 
+なお、1. の機能は[つくぼしさん](https://dev.classmethod.jp/author/tsukuboshi/)のブログを参考に作成したものです。<br>
+https://dev.classmethod.jp/articles/notify-line-aws-billing/
+
 ## 事前準備
 
 1. SlackのWebhook URLを取得する<br>

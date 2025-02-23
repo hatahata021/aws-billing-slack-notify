@@ -16,7 +16,7 @@ resource "aws_iam_role" "billing_lambda_role" {
 
 # IAMポリシー
 resource "aws_iam_role_policy" "billing_lambda_policy" {
-  name = "NotifySlackToBillingLambdaPolicy"
+  name = "billing_slack_notify_lambda_policy"
   role = aws_iam_role.billing_lambda_role.id
 
   policy = jsonencode({
